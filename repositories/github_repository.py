@@ -55,13 +55,14 @@ class GitHubRepository:
                 if  (
                     item["type"] == "file"
                     and item["name"].endswith(config.FILES_FOR_REVIEWING)
+                    and config.EXCLUDED_FILE_NAMES is not None
                     and item["name"] not in config.EXCLUDED_FILE_NAMES
                 ):
                     logger.error("Processing github repo file: %s", item["name"])
                     # Fetch file content
                     file_response = await client.get(item["download_url"])
                     file_content = await file_response.aread()
-                    all_code.append(f"# File: {item['path']}\n{file_content}\n\n")
+                    all_code.append(f"# File: {item['path']}\n{str(file_content)}\n\n")
 
                     repo_structure_lines.append(item["path"])
 
