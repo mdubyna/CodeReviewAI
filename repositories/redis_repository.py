@@ -5,12 +5,14 @@ import redis.asyncio
 
 logger = getLogger(__name__)
 
+
 class RedisRepository:
     """
     A repository for interacting with a Redis cache.
 
     Provides methods for setting and retrieving values from a Redis instance.
     """
+
     def __init__(self, redis_client: redis.asyncio.Redis):
         """
         Initialize the RedisRepository with a Redis client.

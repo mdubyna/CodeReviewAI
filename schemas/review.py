@@ -5,13 +5,14 @@ from pydantic import BaseModel, Field, HttpUrl, validator, field_validator
 
 class CandidateLevelEnum(Enum):
     """
-   Enum representing the candidate's skill level.
+    Enum representing the candidate's skill level.
 
-   Includes the following levels:
-   - junior
-   - middle
-   - senior
-   """
+    Includes the following levels:
+    - junior
+    - middle
+    - senior
+    """
+
     junior = "junior"
     middle = "middle"
     senior = "senior"
@@ -26,6 +27,7 @@ class Review(BaseModel):
         github_repo_url (HttpUrl): The URL of the GitHub repository associated with the assignment.
         candidate_level (CandidateLevelEnum): The skill level of the candidate (junior, middle, senior).
     """
+
     assignment_description: str
     github_repo_url: HttpUrl
     candidate_level: CandidateLevelEnum = Field(default=CandidateLevelEnum.middle)
@@ -47,14 +49,19 @@ class Review(BaseModel):
         Returns:
             HttpUrl: The validated GitHub URL.
         """
-        if value.host and not value.host.endswith("github.com") or value.scheme != "https":
+        if (
+            value.host
+            and not value.host.endswith("github.com")
+            or value.scheme != "https"
+        ):
             raise ValueError("URL must be a valid GitHub HTTPS address.")
 
-        if path_parts:= value.path:
+        if path_parts := value.path:
             if len(path_parts.split("/")) < 2:
                 raise ValueError("Invalid GitHub repository URL")
 
         return value
+
 
 class CompletedReview(BaseModel):
     """
@@ -63,4 +70,5 @@ class CompletedReview(BaseModel):
     Attributes:
         data (str): The result or summary of the completed review.
     """
+
     data: str
