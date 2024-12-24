@@ -1,5 +1,3 @@
-from pyexpat.errors import messages
-
 import config
 from repositories.redis_repository import RedisRepository
 from repositories.github_repository import GitHubRepository
@@ -8,21 +6,47 @@ from schemas.review import CompletedReview, Review
 
 
 class ReviewService:
+    """
+   Service for managing the review process of a candidate's code.
+
+   Handles fetching data from GitHub, generating feedback using OpenAI, and caching the results
+   in Redis for faster retrieval.
+   """
     def __init__(
             self,
             redis_repository: RedisRepository,
             github_repository: GitHubRepository,
             open_ai_repository: OpenAIRepository
     ):
+        """
+        Initializes the ReviewService with the required repositories for Redis, GitHub, and OpenAI.
+
+        Args:
+            redis_repository (RedisRepository): Repository for interacting with Redis cache.
+            github_repository (GitHubRepository): Repository for fetching GitHub repository data.
+            open_ai_repository (OpenAIRepository): Repository for interacting with the OpenAI API.
+        """
         self.redis_repository = redis_repository
         self.github_repository = github_repository
         self.open_ai_repository = open_ai_repository
 
-    async def set_cache(self, review: Review) -> CompletedReview:
+    async def process_the_review(self, review: Review) -> CompletedReview:
+        """
+        Processes the review by fetching repository data, generating feedback using OpenAI,
+        and caching the result in Redis.
+
+        If the review has already been processed and cached, returns the cached feedback.
+
+        Args:
+            review (Review): The review data containing assignment description, GitHub URL, and candidate level.
+
+        Returns:
+            CompletedReview: The completed review with feedback data.
+        """
         cache_key = f"review:{hash(review.model_dump_json())}"
 
         if cached_review:= await self.redis_repository.get(cache_key) is not None:
-            return CompletedReview(data=cached_review)
+            return CompletedReview(data=str(cached_review))
 
         repo_content, repo_structure = await self.github_repository.fetch_repository_files(str(review.github_repo_url))
 
@@ -35,12 +59,28 @@ class ReviewService:
 
         feedback = openai_response["choices"][0]["message"]["content"]
 
-        await self.redis_repository.set(cache_key, value=feedback)
+        await self.redis_repository.set(
+            key=cache_key,
+            value=feedback,
+            ttl=config.CACHE_TIME_TO_LIVE
+        )
 
         return CompletedReview(data=feedback)
 
     @staticmethod
     def _create_prompt(repo_content, review_data):
+        """
+        Creates the prompt for OpenAI based on the provided repository content and review data.
+
+        The prompt instructs OpenAI to analyze the code and provide feedback in a structured format.
+
+        Args:
+            repo_content (str): The content of the candidate's GitHub repository.
+            review_data (Review): The review data containing assignment description and candidate level.
+
+        Returns:
+            str: The generated prompt for OpenAI.
+        """
         return (
             f"Review the following test assignment for a {review_data.candidate_level} candidate.\n\n"
             f"Assignment Description: {review_data.assignment_description}\n\n"
