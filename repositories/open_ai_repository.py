@@ -24,7 +24,7 @@ class OpenAIRepository:
         """
         self.open_ai_client = open_ai_client
 
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
+    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6), reraise=True)
     async def completion_with_backoff(self, **kwargs):
         """
         Make a chat completion request to the OpenAI API with retry logic.

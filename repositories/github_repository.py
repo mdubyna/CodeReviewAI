@@ -1,6 +1,8 @@
 import httpx
 from logging import getLogger
 
+from fastapi import HTTPException
+
 import config
 
 
@@ -38,13 +40,19 @@ class GitHubRepository:
         headers = {"Authorization": f"token {config.GITHUB_TOKEN}"}
 
         async with (httpx.AsyncClient() as client):
-            response = await client.get(api_url, headers=headers)
-            if response.status_code != 200:
+            try:
+                response = await client.get(api_url, headers=headers)
+            except Exception as e:
                 logger.info(
-                    "An error occurred when trying to fetch data from github. Status code: %s",
-                    response.status_code
+                    "An error occurred when trying to fetch data from github. Status code: %s. Error: %s",
+                    response.status_code,
+                    e
                 )
-                return "", ""
+                raise HTTPException(status_code=response.status_code, detail=f"Error accessing GitHub API: {str(e)}")
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code,
+                                    detail=f"Error occurred when accessing GitHub API: {str(response)}")
 
             data = response.json()
 
