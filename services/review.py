@@ -1,3 +1,8 @@
+from logging import getLogger
+
+import openai
+from fastapi import HTTPException
+
 import config
 from repositories.redis_repository import RedisRepository
 from repositories.github_repository import GitHubRepository
@@ -5,18 +10,22 @@ from repositories.open_ai_repository import OpenAIRepository
 from schemas.review import CompletedReview, Review
 
 
+logger = getLogger(__name__)
+
+
 class ReviewService:
     """
-   Service for managing the review process of a candidate's code.
+    Service for managing the review process of a candidate's code.
 
-   Handles fetching data from GitHub, generating feedback using OpenAI, and caching the results
-   in Redis for faster retrieval.
-   """
+    Handles fetching data from GitHub, generating feedback using OpenAI, and caching the results
+    in Redis for faster retrieval.
+    """
+
     def __init__(
-            self,
-            redis_repository: RedisRepository,
-            github_repository: GitHubRepository,
-            open_ai_repository: OpenAIRepository
+        self,
+        redis_repository: RedisRepository,
+        github_repository: GitHubRepository,
+        open_ai_repository: OpenAIRepository,
     ):
         """
         Initializes the ReviewService with the required repositories for Redis, GitHub, and OpenAI.
@@ -30,7 +39,7 @@ class ReviewService:
         self.github_repository = github_repository
         self.open_ai_repository = open_ai_repository
 
-    async def process_the_review(self, review: Review) -> CompletedReview:
+    async def process_the_review(self, review: Review) -> CompletedReview | dict[str, str]:
         """
         Processes the review by fetching repository data, generating feedback using OpenAI,
         and caching the result in Redis.
@@ -45,24 +54,67 @@ class ReviewService:
         """
         cache_key = f"review:{hash(review.model_dump_json())}"
 
-        if cached_review:= await self.redis_repository.get(cache_key) is not None:
+        if cached_review := await self.redis_repository.get(cache_key) is not None:
             return CompletedReview(data=str(cached_review))
 
-        repo_content, repo_structure = await self.github_repository.fetch_repository_files(str(review.github_repo_url))
+        repo_content, repo_structure = (
+            await self.github_repository.fetch_repository_files(
+                str(review.github_repo_url)
+            )
+        )
 
         prompt = self._create_prompt(repo_content, review)
 
-        openai_response = await self.open_ai_repository.completion_with_backoff(
-            model=config.OPEN_AI_MODEL,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        try:
+            openai_response = await self.open_ai_repository.completion_with_backoff(
+                model=config.OPEN_AI_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+        except openai.BadRequestError as e:
+            raise HTTPException(
+                status_code=400, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.AuthenticationError as e:
+            raise HTTPException(
+                status_code=401, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.PermissionDeniedError as e:
+            raise HTTPException(
+                status_code=403, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.NotFoundError as e:
+            raise HTTPException(
+                status_code=404, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.UnprocessableEntityError as e:
+            raise HTTPException(
+                status_code=422, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.RateLimitError as e:
+            raise HTTPException(
+                status_code=429, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.InternalServerError as e:
+            raise HTTPException(
+                status_code=500, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
+
+        except openai.APIConnectionError as e:
+            raise HTTPException(
+                status_code=400, detail=f"Error accessing OpenAI API: {str(e)}"
+            )
 
         feedback = openai_response["choices"][0]["message"]["content"]
 
         await self.redis_repository.set(
-            key=cache_key,
-            value=feedback,
-            ttl=config.CACHE_TIME_TO_LIVE
+            key=cache_key, value=feedback, ttl=int(config.CACHE_TIME_TO_LIVE)
         )
 
         return CompletedReview(data=feedback)

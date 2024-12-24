@@ -7,14 +7,10 @@ from services.review import ReviewService
 router = APIRouter(prefix="/review", tags=["review"])
 
 
-@router.post(
-    "",
-    response_model=CompletedReview
-)
+@router.post("", response_model=CompletedReview)
 async def review_endpoint(
-        review_data: Review,
-        review_service: ReviewService = Depends(get_review_service)
-) -> CompletedReview:
+    review_data: Review, review_service: ReviewService = Depends(get_review_service)
+) -> CompletedReview | dict[str, str]:
     """
     Endpoint to submit a review and store it in cache.
 

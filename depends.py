@@ -11,15 +11,16 @@ from services.review import ReviewService
 
 async def get_redis_repository():
     """
-   Dependency function to get an instance of RedisRepository.
+    Dependency function to get an instance of RedisRepository.
 
-   This function creates and returns a RedisRepository instance, which connects to
-   the Redis server using the `redis.asyncio` library.
+    This function creates and returns a RedisRepository instance, which connects to
+    the Redis server using the `redis.asyncio` library.
 
-   Returns:
-       RedisRepository: An instance of the RedisRepository.
-   """
+    Returns:
+        RedisRepository: An instance of the RedisRepository.
+    """
     return RedisRepository(await redis.Redis())
+
 
 async def get_github_repository():
     """
@@ -33,22 +34,24 @@ async def get_github_repository():
     """
     return GitHubRepository()
 
+
 async def get_open_ai_repository():
     """
-   Dependency function to get an instance of OpenAIRepository.
+    Dependency function to get an instance of OpenAIRepository.
 
-   This function creates and returns an OpenAIRepository instance, initializing it
-   with the OpenAI API client using the configured API key.
+    This function creates and returns an OpenAIRepository instance, initializing it
+    with the OpenAI API client using the configured API key.
 
-   Returns:
-       OpenAIRepository: An instance of the OpenAIRepository.
-   """
+    Returns:
+        OpenAIRepository: An instance of the OpenAIRepository.
+    """
     return OpenAIRepository(OpenAI(api_key=OPEN_AI_API_KEY))
 
+
 async def get_review_service(
-        redis_repository: RedisRepository = Depends(get_redis_repository),
-        github_repository: GitHubRepository = Depends(get_github_repository),
-        open_ai_repository: OpenAIRepository = Depends(get_open_ai_repository)
+    redis_repository: RedisRepository = Depends(get_redis_repository),
+    github_repository: GitHubRepository = Depends(get_github_repository),
+    open_ai_repository: OpenAIRepository = Depends(get_open_ai_repository),
 ) -> ReviewService:
     """
     Dependency function to get an instance of ReviewService.
