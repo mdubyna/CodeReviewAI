@@ -1,4 +1,10 @@
 venv/
+venv.bak/
 .idea/
 poetry.toml
 __pycache__/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
